@@ -5,6 +5,7 @@ using UnityEditor.Animations;
 using UnityEngine;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using System.Linq;
+using VRC.SDK3.Avatars.Components;
 
 namespace Tayou {
 
@@ -14,6 +15,9 @@ public class VRCExpressionParameterManager : VRCExpressionParameters
 
     //[Header("Expressions")]
     //public VRCExpressionsMenu mainMenu;
+
+    [Header("Avatar Descriptor")]
+    public VRCAvatarDescriptor avatarDescriptor;
 
     [Header("Playable Layers")]
     public AnimatorController baseController;

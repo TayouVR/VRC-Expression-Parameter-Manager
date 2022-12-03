@@ -217,12 +217,13 @@ namespace Tayou
 		{
 			serializedObject.Update();
 
-			EditorGUILayout.LabelField("Animator Controllers");
-			_customExpressionParams.baseController = (AnimatorController)EditorGUILayout.ObjectField("Base", _customExpressionParams.baseController, typeof(AnimatorController), true, new GUILayoutOption[] { });
-			_customExpressionParams.additiveController = (AnimatorController)EditorGUILayout.ObjectField("Additive", _customExpressionParams.additiveController, typeof(AnimatorController), true, new GUILayoutOption[] { });
-			_customExpressionParams.gestureController = (AnimatorController)EditorGUILayout.ObjectField("Gesture", _customExpressionParams.gestureController, typeof(AnimatorController), true, new GUILayoutOption[] { });
-			_customExpressionParams.actionController = (AnimatorController)EditorGUILayout.ObjectField("Action", _customExpressionParams.actionController, typeof(AnimatorController), true, new GUILayoutOption[] { });
-			_customExpressionParams.fxController = (AnimatorController)EditorGUILayout.ObjectField("FX", _customExpressionParams.fxController, typeof(AnimatorController), true, new GUILayoutOption[] { });
+			EditorGUILayout.PropertyField(serializedObject.FindProperty("avatarDescriptor"));
+
+			EditorGUILayout.PropertyField(serializedObject.FindProperty("baseController"));
+			EditorGUILayout.PropertyField(serializedObject.FindProperty("additiveController"));
+			EditorGUILayout.PropertyField(serializedObject.FindProperty("gestureController"));
+			EditorGUILayout.PropertyField(serializedObject.FindProperty("actionController"));
+			EditorGUILayout.PropertyField(serializedObject.FindProperty("fxController"));
 
 			_showBuiltInParameterList = EditorGUILayout.Foldout(_showBuiltInParameterList, "Built-in Parameters");
 			if (_showBuiltInParameterList)

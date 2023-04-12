@@ -1,182 +1,164 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor.Animations;
 using UnityEngine;
 using VRC.SDK3.Avatars.ScriptableObjects;
-using System.Linq;
-using VRC.SDK3.Avatars.Components;
 
-namespace Tayou {
+namespace Tayou.VRChat.ExpressionParameterManager {
 
-[CreateAssetMenu(fileName = "VRCExpressionParameterManager", menuName = "VRChat/Avatars/Extended Expression Parameters")]
-public class VRCExpressionParameterManager : VRCExpressionParameters
-{
+[CreateAssetMenu(fileName = "VRCExpressionParameterManager", menuName = "Tayou/VRChat/Expression Parameter Manager")]
+public class VRCExpressionParameterManager : VRCExpressionParameters {
+    
+    [Header("Expressions")]
+    public VRCExpressionsMenu mainMenu;
 
-    //[Header("Expressions")]
-    //public VRCExpressionsMenu mainMenu;
-
-    [Header("Avatar Descriptor")]
-    public VRCAvatarDescriptor avatarDescriptor;
-
-    [Header("Playable Layers")]
     public AnimatorController baseController;
     public AnimatorController additiveController;
     public AnimatorController gestureController;
     public AnimatorController actionController;
     public AnimatorController fxController;
 
-    public List<ExtendedVRCExpressionParameter> builtInParameters = new List<ExtendedVRCExpressionParameter>();
-
-    public List<ExtendedVRCExpressionParameter> betterParameters = new List<ExtendedVRCExpressionParameter>();
+    public List<Parameter> builtInParameters = new List<Parameter>();
 
     private void OnEnable()
     {
         if (builtInParameters.Count == 0)
         {
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "IsLocal",
-                ValueType = AnimatorControllerParameterType.Bool,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Bool
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "Viseme",
-                ValueType = AnimatorControllerParameterType.Int,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Int
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
+            {
+                name = "Voice",
+                valueType = ValueType.Float
+            });
+            builtInParameters.Add(new Parameter
             {
                 name = "GestureLeft",
-                ValueType = AnimatorControllerParameterType.Int,
-                layerMask = VRCAnimatorLayerMask.Gesture
+                valueType = ValueType.Int
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "GestureRight",
-                ValueType = AnimatorControllerParameterType.Int,
-                layerMask = VRCAnimatorLayerMask.Gesture
+                valueType = ValueType.Int
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "GestureLeftWeight",
-                ValueType = AnimatorControllerParameterType.Float,
-                layerMask = VRCAnimatorLayerMask.Gesture
+                valueType = ValueType.Float
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "GestureRightWeight",
-                ValueType = AnimatorControllerParameterType.Float,
-                layerMask = VRCAnimatorLayerMask.Gesture
+                valueType = ValueType.Float
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "AngularY",
-                ValueType = AnimatorControllerParameterType.Float,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Float
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "VelocityX",
-                ValueType = AnimatorControllerParameterType.Float,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Float
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "VelocityY",
-                ValueType = AnimatorControllerParameterType.Float,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Float
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "VelocityZ",
-                ValueType = AnimatorControllerParameterType.Float,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Float
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
+            {
+                name = "VelocityMagnitude",
+                valueType = ValueType.Float
+            });
+            builtInParameters.Add(new Parameter
             {
                 name = "Upright",
-                ValueType = AnimatorControllerParameterType.Float,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Float
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "Grounded",
-                ValueType = AnimatorControllerParameterType.Bool,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Bool
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "Seated",
-                ValueType = AnimatorControllerParameterType.Bool,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Bool
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "AFK",
-                ValueType = AnimatorControllerParameterType.Bool,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Bool
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "TrackingType",
-                ValueType = AnimatorControllerParameterType.Int,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Int
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "VRMode",
-                ValueType = AnimatorControllerParameterType.Int,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Int
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "MuteSelf",
-                ValueType = AnimatorControllerParameterType.Bool,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Bool
             });
-            builtInParameters.Add(new ExtendedVRCExpressionParameter(this)
+            builtInParameters.Add(new Parameter
             {
                 name = "InStation",
-                ValueType = AnimatorControllerParameterType.Bool,
-                layerMask = VRCAnimatorLayerMask.None
+                valueType = ValueType.Bool
+            });
+            builtInParameters.Add(new Parameter
+            {
+                name = "Earmuffs",
+                valueType = ValueType.Bool
             });
         }
     }
 
-    public void UpdateVRCParameterList()
-    {
-        parameters = betterParameters.Where(_parameter => _parameter.synced == true).ToArray();
-        Debug.Log($"writing parameters to internal VRC list:\n length: {parameters.Length}\n" + String.Join(", ", parameters.Select(parameter => parameter.name).ToArray()));
-    }
-
-    public static VRCExpressionParameters.ValueType UnityType2VRCType(AnimatorControllerParameterType type)
+    public static ValueType UnityType2VRCType(AnimatorControllerParameterType type)
     {
         switch (type)
         {
             case AnimatorControllerParameterType.Int:
-                return VRCExpressionParameters.ValueType.Int;
+                return ValueType.Int;
             case AnimatorControllerParameterType.Float:
-                return VRCExpressionParameters.ValueType.Float;
+                return ValueType.Float;
             case AnimatorControllerParameterType.Bool:
-                return VRCExpressionParameters.ValueType.Bool;
+                return ValueType.Bool;
             case AnimatorControllerParameterType.Trigger:
-                return VRCExpressionParameters.ValueType.Bool; // the only way this works, Enums are not nullable
+                return ValueType.Bool; // the only way this works, Enums are not nullable
             default:
                 throw new ArgumentOutOfRangeException(nameof(type), type, null);
         }
     }
 
-    public static AnimatorControllerParameterType VRCType2UnityType(VRCExpressionParameters.ValueType type)
+    public static AnimatorControllerParameterType VRCType2UnityType(ValueType type)
     {
         switch (type)
         {
-            case VRCExpressionParameters.ValueType.Int:
+            case ValueType.Int:
                 return AnimatorControllerParameterType.Int;
-            case VRCExpressionParameters.ValueType.Float:
+            case ValueType.Float:
                 return AnimatorControllerParameterType.Float;
-            case VRCExpressionParameters.ValueType.Bool:
+            case ValueType.Bool:
                 return AnimatorControllerParameterType.Bool;
             default:
                 throw new ArgumentOutOfRangeException(nameof(type), type, null);
@@ -218,7 +200,7 @@ public class VRCExpressionParameterManager : VRCExpressionParameters
             foreach (var builtInParameter in builtInParameters)
             {
                 if (builtInParameter.name == controllerParameter.name &&
-                    builtInParameter.ValueType == controllerParameter.type &&
+                    VRCType2UnityType(builtInParameter.valueType) == controllerParameter.type &&
                     builtInParameter.defaultValue == controllerParameter.defaultFloat)
                 {
                     isBuiltIn = true;
@@ -228,10 +210,10 @@ public class VRCExpressionParameterManager : VRCExpressionParameters
             if (isBuiltIn) continue;
 
             bool existsInParamList = false;
-            foreach (var parameter in betterParameters)
+            foreach (var parameter in parameters)
             {
                 if (parameter.name == controllerParameter.name &&
-                    parameter.ValueType == controllerParameter.type &&
+                    VRCType2UnityType(parameter.valueType) == controllerParameter.type &&
                     parameter.defaultValue == controllerParameter.defaultFloat)
                 {
                     existsInParamList = true;
@@ -241,41 +223,62 @@ public class VRCExpressionParameterManager : VRCExpressionParameters
             if (existsInParamList) continue;
 
 
-            betterParameters.Add(new ExtendedVRCExpressionParameter(this)
+            /*parameters.Add(new Parameter
             {
                 name = controllerParameter.name,
                 defaultValue = controllerParameter.type == AnimatorControllerParameterType.Float ? controllerParameter.defaultFloat : controllerParameter.type == AnimatorControllerParameterType.Int ? controllerParameter.defaultInt : controllerParameter.defaultBool ? 1 : 0,
-                ValueType = controllerParameter.type
-            });
+                valueType = UnityType2VRCType(controllerParameter.type)
+            });*/
 
         }
     }
 
-    public void SaveParameterValueInController(ExtendedVRCExpressionParameter parameter)
-    {
-        if (baseController != null)
-        {
-            TransferParameterToAnimatorController(parameter, baseController, parameter.layerMask.HasFlag(VRCAnimatorLayerMask.Base));
+    public void SaveParameterInController(Parameter parameter, VRCAnimatorLayerMask layerMask) {
+        if (baseController != null && layerMask.HasFlag(VRCAnimatorLayerMask.Base)) {
+            TransferParameterToAnimatorController(parameter, baseController);
         }
-        if (additiveController != null)
-        {
-            TransferParameterToAnimatorController(parameter, additiveController, parameter.layerMask.HasFlag(VRCAnimatorLayerMask.Additive));
+        if (additiveController != null && layerMask.HasFlag(VRCAnimatorLayerMask.Additive)) {
+            TransferParameterToAnimatorController(parameter, additiveController);
         }
-        if (gestureController != null)
-        {
-            TransferParameterToAnimatorController(parameter, gestureController, parameter.layerMask.HasFlag(VRCAnimatorLayerMask.Gesture));
+        if (gestureController != null && layerMask.HasFlag(VRCAnimatorLayerMask.Gesture)) {
+            TransferParameterToAnimatorController(parameter, gestureController);
         }
-        if (actionController != null)
-        {
-            TransferParameterToAnimatorController(parameter, actionController, parameter.layerMask.HasFlag(VRCAnimatorLayerMask.Action));
+        if (actionController != null && layerMask.HasFlag(VRCAnimatorLayerMask.Action)) {
+            TransferParameterToAnimatorController(parameter, actionController);
         }
-        if (fxController != null)
-        {
-            TransferParameterToAnimatorController(parameter, fxController, parameter.layerMask.HasFlag(VRCAnimatorLayerMask.FX));
+        if (fxController != null && layerMask.HasFlag(VRCAnimatorLayerMask.FX)) {
+            TransferParameterToAnimatorController(parameter, fxController);
         }
     }
 
-    private void TransferParameterToAnimatorController(ExtendedVRCExpressionParameter parameter, AnimatorController controller, bool create)
+    public VRCAnimatorLayerMask GetLayerMaskForParameter(string parameter) {
+        VRCAnimatorLayerMask layerMask = VRCAnimatorLayerMask.None;
+        void VrcAnimatorLayerMask(AnimatorController controller, VRCAnimatorLayerMask mask) {
+            if (controller.parameters.Where(param => param.name == parameter).ToArray().Length > 0) {
+                layerMask |= mask;
+            }
+        }
+
+        if (baseController != null) {
+            VrcAnimatorLayerMask(baseController, VRCAnimatorLayerMask.Base);
+        }
+        if (additiveController != null) {
+            VrcAnimatorLayerMask(additiveController, VRCAnimatorLayerMask.Additive);
+        }
+        if (gestureController != null) {
+            VrcAnimatorLayerMask(gestureController, VRCAnimatorLayerMask.Gesture);
+        }
+        if (actionController != null) {
+            VrcAnimatorLayerMask(actionController, VRCAnimatorLayerMask.Action);
+        }
+        if (fxController != null) {
+            VrcAnimatorLayerMask(fxController, VRCAnimatorLayerMask.FX);
+        }
+
+        return layerMask;
+    }
+
+    private void TransferParameterToAnimatorController(Parameter parameter, AnimatorController controller)
     {
         object objController = controller; // For some reason this doesn't work, therefore the stuff above
         if (objController == null) return; // <-------
@@ -286,7 +289,7 @@ public class VRCExpressionParameterManager : VRCExpressionParameters
         AnimatorControllerParameter foundControllerParameter = null;
         foreach (var controllerParameter in controller.parameters)
         {
-            if (controllerParameter.name == parameter.Name)
+            if (controllerParameter.name == parameter.name)
             {
                 parameterExists = true;
                 foundControllerParameter = controllerParameter;
@@ -294,89 +297,30 @@ public class VRCExpressionParameterManager : VRCExpressionParameters
             }
         }
 
-        if (!parameterExists && create)
+        if (!parameterExists)
         {
             controllerParamsList.Add(new AnimatorControllerParameter()
             {
-                name = parameter.Name,
+                name = parameter.name,
                 defaultBool = parameter.defaultValue > 0.5,
                 defaultFloat = parameter.defaultValue,
                 defaultInt = (int)Math.Floor(parameter.defaultValue),
-                type = parameter.ValueType
+                type = VRCType2UnityType(parameter.valueType)
             });
-        }
-        else if (parameterExists && !create)
-        {
-            controllerParamsList.Remove(foundControllerParameter);
         }
 
         controller.parameters = controllerParamsList.ToArray();
     }
 }
 
-[Serializable]
-public class ExtendedVRCExpressionParameter : VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionParameters.Parameter
-{
-
-    [SerializeField] private VRCExpressionParameterManager _extendedVRCExpressionParameters;
-
-    // [SerializeReference] public AnimatorControllerParameter _baseControllerParameter;
-    // [SerializeReference] public AnimatorControllerParameter _additiveControllerParameter;
-    // [SerializeReference] public AnimatorControllerParameter _gestureControllerParameter;
-    // [SerializeReference] public AnimatorControllerParameter _actionControllerParameter;
-    // [SerializeReference] public AnimatorControllerParameter _fxControllerParameter;
-
-    [SerializeField] private AnimatorControllerParameterType _valueType = AnimatorControllerParameterType.Bool;
-
-    [SerializeField] public VRCAnimatorLayerMask layerMask = VRCAnimatorLayerMask.FX;
-
-    [SerializeField] public bool synced;
-
-    public ExtendedVRCExpressionParameter(VRCExpressionParameterManager extendedVRCExpressionParameters)
-    {
-        _extendedVRCExpressionParameters = extendedVRCExpressionParameters;
-    }
-
-    public string Name
-    {
-        get => String.IsNullOrEmpty(name) ? "Unnamed" + _extendedVRCExpressionParameters.betterParameters.Count : name;
-        set
-        {
-            name = value;
-            _extendedVRCExpressionParameters.SaveParameterValueInController(this);
-        }
-    }
-
-    public AnimatorControllerParameterType ValueType
-    {
-        get => _valueType;
-        set
-        {
-            _valueType = value;
-            valueType = VRCExpressionParameterManager.UnityType2VRCType(value);
-            _extendedVRCExpressionParameters.SaveParameterValueInController(this);
-        }
-    }
-
-    public float DefaultValue
-    {
-        get => defaultValue;
-        set
-        {
-            defaultValue = value;
-            _extendedVRCExpressionParameters.SaveParameterValueInController(this);
-        }
-    }
-}
-
 [Flags]
 public enum VRCAnimatorLayerMask
 {
-    None = 0,
-    Base = 1,
-    Additive = 2,
-    Gesture = 4,
-    Action = 8,
-    FX = 16
+    None =      0x00000,
+    Base =      0x00001,
+    Additive =  0x00010,
+    Gesture =   0x00100,
+    Action =    0x01000,
+    FX =        0x10000
 }
 }

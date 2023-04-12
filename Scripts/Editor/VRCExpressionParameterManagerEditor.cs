@@ -1,215 +1,216 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
+using VRC.SDK3.Avatars.Components;
 using AnimatorController = UnityEditor.Animations.AnimatorController;
 using AnimatorControllerParameter = UnityEngine.AnimatorControllerParameter;
 using AnimatorControllerParameterType = UnityEngine.AnimatorControllerParameterType;
-using ExpressionParameters = VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionParameters;
+using VRCExpressionParameters = VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionParameters;
 using ExpressionParameter = VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionParameters.Parameter;
 
-namespace Tayou
+namespace Tayou.VRChat.ExpressionParameterManager
 {
-
-
 	[CustomEditor(typeof(VRCExpressionParameterManager))]
-	public class VRCExpressionParameterManagerEditor : UnityEditor.Editor
-	{
+	public class VRCExpressionParameterManagerEditor : VRCExpressionParametersEditor {
+		public VRCAvatarDescriptor avatarDescriptor;
+		private const int ParamCountLabelWidth = 20;
 		private const int MaskWidth = 60;
 		private const int TypeWidth = 60;
 		private const int DefaultWidth = 50;
-		private const int SavedWidth = 40;
-		private const int SyncedWidth = 50;
+		private const int SavedWidth = 50;
+		private const int SyncedWidth = 45;
 
 		private ReorderableList _list;
 		private ReorderableList _builtInParametersList;
-		private VRCExpressionParameterManager _customExpressionParams;
+		private VRCExpressionParameterManager _target;
 		private bool _showBuiltInParameterList;
+		private bool _extraOptionsFoldout;
 
-		public ReorderableList list
-		{
-			get
-			{
-				if ((object)_list == null)
-				{
+		private VRCExpressionParameters _importExportParameterListTarget;
+
+		public ReorderableList List {
+			get {
+				if ((object) _list == null) {
 					// initialize ReorderableList
-					_list = new ReorderableList(_customExpressionParams.betterParameters, typeof(VRCExpressionParameterManager), true, true, true, true);
-					_list.drawElementCallback = delegate (Rect rect, int index, bool active, bool focused) { OnDrawElement(rect, index, active, focused, false); };
-					_list.drawHeaderCallback = delegate (Rect rect) { OnDrawHeader(rect, false); };
-					_list.onAddCallback = ONAddCallback;
-					_list.onRemoveCallback = ONRemoveCallback;
+					_list = new ReorderableList(serializedObject, serializedObject.FindProperty("parameters"), 
+						true, true, true, true);
+					_list.drawElementCallback = delegate(Rect rect, int index, bool active, bool focused) {
+						OnDrawElement(rect, index, active, focused, false);
+					};
+					_list.drawHeaderCallback = delegate(Rect rect) { OnDrawHeader(rect, false); };
+					_list.onAddCallback = ListOnAddCallback;
 				}
 				return _list;
 			}
 		}
 
-		public ReorderableList BuiltInParametersList
-		{
-			get
-			{
-				if ((object)_builtInParametersList == null)
-				{
+		/// <summary>
+		/// What the fuck?!
+		/// Why is this broken?????
+		/// Explain yourself, unity. I'm setting the value, I'm printing it out to the log... and it doesn't work..
+		/// </summary>
+		/// <param name="reorderableList"></param>
+		private void ListOnAddCallback(ReorderableList reorderableList) {
+			reorderableList.serializedProperty.arraySize += 1;
+			_target.parameters[_target.parameters.Length - 1].name = MakeUniqueParameterName("Unnamed");
+		}
+
+		/// <summary>
+		/// spits out the input parameter name appended with a (n) based on the times that parameter and similar ones already exist.
+		/// </summary>
+		/// <param name="parameter">source parameter</param>
+		/// <returns>Unique parameter</returns>
+		public string MakeUniqueParameterName(string parameter) {
+			int similarlyNamedParamCount =
+				_target.parameters.Where(param => parameter.StartsWith(param.name)).ToArray().Length;
+			string returnParameterName = parameter + (similarlyNamedParamCount > 0 ? $" ({similarlyNamedParamCount})" : "");
+			Debug.Log($"Found {similarlyNamedParamCount} similarly names parameters, returning parameter: {returnParameterName}");
+			return returnParameterName;
+		}
+
+		public ReorderableList BuiltInParametersList {
+			get {
+				if ((object) _builtInParametersList == null) {
 					// initialize ReorderableList
-					_builtInParametersList = new ReorderableList(_customExpressionParams.builtInParameters, typeof(ExtendedVRCExpressionParameter), false, true, false, false);
-					_builtInParametersList.drawElementCallback = delegate (Rect rect, int index, bool active, bool focused) { OnDrawElement(rect, index, active, focused, true); };
-					_builtInParametersList.drawHeaderCallback = delegate (Rect rect) { OnDrawHeader(rect, true); };
+					_builtInParametersList = new ReorderableList(serializedObject, serializedObject.FindProperty("builtInParameters"), 
+						false, true, false, false);
+					_builtInParametersList.drawElementCallback =
+						delegate(Rect rect, int index, bool active, bool focused)
+						{
+							OnDrawElement(rect, index, active, focused, true);
+						};
+					_builtInParametersList.drawHeaderCallback = delegate(Rect rect) { OnDrawHeader(rect, true); };
 				}
+
 				return _builtInParametersList;
 			}
 		}
 
-		private void ONRemoveCallback(ReorderableList reorderableList)
-		{
-			_customExpressionParams.betterParameters[list.index].layerMask = VRCAnimatorLayerMask.None;
-			_customExpressionParams.SaveParameterValueInController(_customExpressionParams.betterParameters[list.index]);
-			_customExpressionParams.betterParameters.RemoveAt(list.index);
+		public enum Column {
+			OverallParamCount,
+			Mask,
+			Type,
+			ParameterName,
+			Default,
+			Saved,
+			Synced
 		}
 
-		private void ONAddCallback(ReorderableList reorderableList)
-		{
-			_customExpressionParams.betterParameters.Add(new ExtendedVRCExpressionParameter(_customExpressionParams));
+		private Rect GetColumnSection(Column column, Rect rect, bool isHeader = false, bool isToggle = false) {
+			int paramCountLabelWidth = isHeader ? ParamCountLabelWidth : 0;
+
+			Rect outputRect = new Rect(rect);
+			outputRect.height = EditorGUIUtility.singleLineHeight;
+
+			switch (column) {
+				case Column.OverallParamCount:
+					outputRect.width = paramCountLabelWidth;
+					outputRect.x = rect.x;
+					break;
+				case Column.Mask:
+					outputRect.width = MaskWidth;
+					outputRect.x = rect.x + paramCountLabelWidth;
+					break;
+				case Column.Type:
+					outputRect.width = TypeWidth;
+					outputRect.x = rect.x + paramCountLabelWidth + MaskWidth;
+					break;
+				case Column.ParameterName:
+					outputRect.width = rect.width - (DefaultWidth + SavedWidth + SyncedWidth + TypeWidth + MaskWidth);
+					outputRect.x = rect.x + paramCountLabelWidth + TypeWidth + MaskWidth;
+					break;
+				case Column.Default:
+					outputRect.width = DefaultWidth;
+					outputRect.x = rect.x + rect.width - (DefaultWidth + SyncedWidth + SavedWidth) +
+					          (isToggle ? outputRect.width / 2 - 4 : 0);
+					if (isToggle) outputRect.width = EditorGUIUtility.singleLineHeight;
+					break;
+				case Column.Saved:
+					outputRect.width = SavedWidth;
+					outputRect.x = rect.x + rect.width - (SyncedWidth + SavedWidth) + (isToggle ? outputRect.width / 2 - 4 : 0);
+					if (isToggle) outputRect.width = EditorGUIUtility.singleLineHeight;
+					break;
+				case Column.Synced:
+					outputRect.width = SyncedWidth;
+					outputRect.x = rect.x + rect.width - SyncedWidth + (isToggle ? outputRect.width / 2 - 4 : 0);
+					if (isToggle) outputRect.width = EditorGUIUtility.singleLineHeight;
+					break;
+				default:
+					Debug.LogWarning($"Something went wrong, tried to get column type \"{column}\"");
+					break;
+			}
+
+			return outputRect;
 		}
 
-		public void OnEnable()
-		{
-
-
+		public new void OnEnable() {
 			//Init parameters
-			_customExpressionParams = target as VRCExpressionParameterManager;
-			if (_customExpressionParams.parameters == null)
+			_target = target as VRCExpressionParameterManager;
+			if (_target != null && _target.parameters == null)
 				InitExpressionParameters(true);
 		}
 
-		private void OnDrawHeader(Rect rect, bool isBuiltIn)
-		{
-			//rect.y += 2;
+		private void OnDrawHeader(Rect rect, bool isBuiltIn) {
 
-			Rect _rect = new Rect(rect.x - 5, rect.y, 25, EditorGUIUtility.singleLineHeight);
-			if (!isBuiltIn)
-			{
-				EditorGUI.LabelField(_rect, $"{list.count}");
+			var centeredStyle = new GUIStyle(GUI.skin.GetStyle("Label")) {
+				alignment = TextAnchor.UpperCenter
+			};
+
+			if (!isBuiltIn) {
+				// the default size of the rect is bs, need to shift it to the left and make it wider to fit the entire space
+				rect.x -= 5;
+				rect.width += 5;
+				EditorGUI.LabelField(GetColumnSection(Column.OverallParamCount, rect, true), $"{List.count}");
 			}
-
-			rect.x += (!isBuiltIn ? 15 : 0) + 5;
-			rect.width -= (!isBuiltIn ? 15 : 0) + 5;
-
-			_rect = new Rect(rect.x, rect.y, MaskWidth, EditorGUIUtility.singleLineHeight);
-			EditorGUI.LabelField(_rect, "Layers");
-
-			rect.x += MaskWidth + 5;
-			rect.width -= MaskWidth + 5;
-
-			_rect = new Rect(rect.x, rect.y, TypeWidth, EditorGUIUtility.singleLineHeight);
-			EditorGUI.LabelField(_rect, "Type");
-
-			rect.x += TypeWidth + 5;
-			rect.width -= TypeWidth + 5;
-
-			_rect = new Rect(rect.x, rect.y, rect.width - (5 + DefaultWidth + 5 + SavedWidth + 5 + SyncedWidth), EditorGUIUtility.singleLineHeight);
-			EditorGUI.LabelField(_rect, "Name");
-
-			rect.x += rect.width - (DefaultWidth + 5 + SavedWidth + 5 + SyncedWidth);
-			rect.width = DefaultWidth + 5 + SavedWidth + 5 + SyncedWidth;
-
-			_rect = new Rect(rect.x, rect.y, DefaultWidth, EditorGUIUtility.singleLineHeight);
-			EditorGUI.LabelField(_rect, "Default");
-
-			rect.x += rect.width - (SavedWidth + 5 + SyncedWidth);
-			rect.width -= SavedWidth + 5 + SyncedWidth;
-
-			_rect = new Rect(rect.x, rect.y, SavedWidth, EditorGUIUtility.singleLineHeight);
-			EditorGUI.LabelField(_rect, "Saved");
-
-			rect.x += SyncedWidth;
-			rect.width -= SyncedWidth + 5;
-
-			_rect = new Rect(rect.x, rect.y, SyncedWidth, EditorGUIUtility.singleLineHeight);
-			EditorGUI.LabelField(_rect, "Synced");
-
+			EditorGUI.LabelField(GetColumnSection(Column.OverallParamCount, rect, !isBuiltIn), $"{List.count}");
+			EditorGUI.LabelField(GetColumnSection(Column.Mask, rect, !isBuiltIn), "Layers", centeredStyle);
+			EditorGUI.LabelField(GetColumnSection(Column.Type, rect, !isBuiltIn), "Type", centeredStyle);
+			EditorGUI.LabelField(GetColumnSection(Column.ParameterName, rect, !isBuiltIn), "Name", centeredStyle);
+			EditorGUI.LabelField(GetColumnSection(Column.Default, rect, !isBuiltIn), "Default", centeredStyle);
+			EditorGUI.LabelField(GetColumnSection(Column.Saved, rect, !isBuiltIn), "Saved", centeredStyle);
+			EditorGUI.LabelField(GetColumnSection(Column.Synced, rect, !isBuiltIn), "Synced", centeredStyle);
 		}
 
 		private void OnDrawElement(Rect rect, int index, bool isActive, bool isFocused, bool isBuiltIn)
 		{
-			ExtendedVRCExpressionParameter element = null;
-			if (isBuiltIn)
-			{
-				element = _customExpressionParams.builtInParameters[index];
+			ExpressionParameter parameter;
+			SerializedProperty serializedProperty;
+			if (isBuiltIn) {
+				parameter = _target.builtInParameters[index];
+				serializedProperty = BuiltInParametersList.serializedProperty.GetArrayElementAtIndex(index);
+			} else {
+				parameter = _target.parameters[index];
+				serializedProperty = List.serializedProperty.GetArrayElementAtIndex(index);
 			}
-			else
-			{
-				element = _customExpressionParams.betterParameters[index];
-			}
-			rect.y += 2;
-			rect.x += 5;
 
-			Rect _rect = new Rect(rect.x, rect.y, MaskWidth, EditorGUIUtility.singleLineHeight);
+			VRCAnimatorLayerMask layerMask = _target.GetLayerMaskForParameter(parameter.name);
 
-			element.layerMask = (VRCAnimatorLayerMask)EditorGUI.EnumFlagsField(_rect, element.layerMask);
+			layerMask = (VRCAnimatorLayerMask)EditorGUI.EnumFlagsField(GetColumnSection(Column.Mask, rect), layerMask);
 
-			rect.x += MaskWidth + 5;
-			rect.width -= MaskWidth + 5;
+			_target.SaveParameterInController(parameter, layerMask);
 
 			GUI.enabled = !isBuiltIn;
-
-			_rect = new Rect(rect.x, rect.y, TypeWidth, EditorGUIUtility.singleLineHeight);
-
-			if (element.synced)
+			
+			EditorGUI.PropertyField(GetColumnSection(Column.Type, rect), serializedProperty.FindPropertyRelative("valueType"), GUIContent.none);
+			EditorGUI.PropertyField(GetColumnSection(Column.ParameterName, rect), serializedProperty.FindPropertyRelative("name"), GUIContent.none );
+			SerializedProperty defaultValue = serializedProperty.FindPropertyRelative("defaultValue");
+			var type = (VRCExpressionParameters.ValueType)serializedProperty.FindPropertyRelative("valueType").intValue;
+			switch(type)
 			{
-				element.ValueType = VRCExpressionParameterManager.VRCType2UnityType((ExpressionParameters.ValueType)EditorGUI.EnumPopup(_rect, VRCExpressionParameterManager.UnityType2VRCType(element.ValueType)));
-			}
-			else
-			{
-				element.ValueType = (AnimatorControllerParameterType)EditorGUI.EnumPopup(_rect, element.ValueType);
-			}
-
-			rect.x += TypeWidth + 5;
-			rect.width -= TypeWidth + 5;
-
-			_rect = new Rect(rect.x, rect.y, rect.width - (5 + DefaultWidth + 5 + SavedWidth + 5 + SyncedWidth + 5), EditorGUIUtility.singleLineHeight);
-			element.Name = EditorGUI.TextField(_rect, element.Name);
-
-
-
-			rect.x += rect.width - (5 + DefaultWidth + 5 + SavedWidth + 5 + SyncedWidth);
-			rect.width = 5 + DefaultWidth + 5 + SavedWidth + 5 + SyncedWidth;
-
-			_rect = new Rect(rect.x, rect.y, DefaultWidth, EditorGUIUtility.singleLineHeight);
-			switch (element.ValueType)
-			{
-				case AnimatorControllerParameterType.Float:
-					element.defaultValue = Mathf.Clamp(EditorGUI.FloatField(_rect, element.defaultValue), -1f, 1f);
+				case VRCExpressionParameters.ValueType.Int:
+					defaultValue.floatValue = Mathf.Clamp(EditorGUI.IntField(GetColumnSection(Column.Default, rect), (int)defaultValue.floatValue), 0, 255);
 					break;
-				case AnimatorControllerParameterType.Int:
-					element.defaultValue = Mathf.Clamp(EditorGUI.IntField(_rect, (int)element.defaultValue), 0, 255);
+				case VRCExpressionParameters.ValueType.Float:
+					defaultValue.floatValue = Mathf.Clamp(EditorGUI.FloatField(GetColumnSection(Column.Default, rect), defaultValue.floatValue), -1f, 1f);
 					break;
-				case AnimatorControllerParameterType.Bool:
-				case AnimatorControllerParameterType.Trigger:
-					_rect.x += 20;
-					_rect.width -= 20;
-					element.defaultValue = EditorGUI.Toggle(_rect, element.defaultValue != 0) ? 1f : 0f;
+				case VRCExpressionParameters.ValueType.Bool:
+					defaultValue.floatValue = EditorGUI.Toggle(GetColumnSection(Column.Default, rect, false, true), defaultValue.floatValue != 0 ? true : false) ? 1f : 0f;
 					break;
-				default:
-					throw new ArgumentOutOfRangeException();
 			}
-
-			rect.x += rect.width - (SavedWidth + 5 + SyncedWidth) + 13;
-			rect.width -= SavedWidth + 5 + SyncedWidth + 13;
-
-			_rect = new Rect(rect.x, rect.y, SavedWidth, EditorGUIUtility.singleLineHeight);
-			GUI.enabled = element.synced && !isBuiltIn;
-            if (GUI.enabled) {
-				element.saved = EditorGUI.Toggle(_rect, element.saved);
-			} else {
-				EditorGUI.Toggle(_rect, false);
-			}
-
-			rect.x += SyncedWidth + 5;
-			rect.width -= SyncedWidth + 5;
-
-			GUI.enabled = element.ValueType != AnimatorControllerParameterType.Trigger && !isBuiltIn;
-			_rect = new Rect(rect.x, rect.y, SyncedWidth, EditorGUIUtility.singleLineHeight);
-			element.synced = EditorGUI.Toggle(_rect, element.synced);
+			EditorGUI.PropertyField(GetColumnSection(Column.Saved, rect, false, true), serializedProperty.FindPropertyRelative("saved"), GUIContent.none);
+			EditorGUI.PropertyField(GetColumnSection(Column.Synced, rect, false, true), serializedProperty.FindPropertyRelative("networkSynced"), GUIContent.none);
 			GUI.enabled = true;
 		}
 
@@ -217,8 +218,11 @@ namespace Tayou
 		{
 			serializedObject.Update();
 
-			EditorGUILayout.PropertyField(serializedObject.FindProperty("avatarDescriptor"));
+			DrawAvatarDescriptorDropdown();
 
+			EditorGUILayout.LabelField("Animator Controllers", new GUIStyle(GUI.skin.GetStyle("Label")) {
+					fontStyle = FontStyle.Bold
+			});
 			EditorGUILayout.PropertyField(serializedObject.FindProperty("baseController"));
 			EditorGUILayout.PropertyField(serializedObject.FindProperty("additiveController"));
 			EditorGUILayout.PropertyField(serializedObject.FindProperty("gestureController"));
@@ -231,27 +235,20 @@ namespace Tayou
 				BuiltInParametersList.DoLayoutList();
 			}
 
-			if (_customExpressionParams != null)
+			if (_target != null)
 			{
-				_customExpressionParams.CheckForVRCExpChanges();
 				EditorGUILayout.LabelField("Parameters");
-				list.DoLayoutList();
-				serializedObject.ApplyModifiedProperties();
-
+				
 				//Draw parameters
-				var parameters = serializedObject.FindProperty("parameters");
-
-				// old school draw parameters without ReorderableList
-				/*for (int i = 0; i < ExpressionParameters.MAX_PARAMETERS; i++)
-					DrawExpressionParameter(parameters, i);
-				*/
-
+				List.DoLayoutList();
+				serializedObject.ApplyModifiedProperties();
+				
 				//Cost
-				int cost = _customExpressionParams.CalcTotalCost();
-				if (cost <= ExpressionParameters.MAX_PARAMETER_COST)
-					EditorGUILayout.HelpBox($"Total Memory: {cost}/{ExpressionParameters.MAX_PARAMETER_COST}", MessageType.Info);
+				int cost = _target.CalcTotalCost();
+				if (cost <= VRCExpressionParameters.MAX_PARAMETER_COST)
+					EditorGUILayout.HelpBox($"Total Memory: {cost}/{VRCExpressionParameters.MAX_PARAMETER_COST}", MessageType.Info);
 				else
-					EditorGUILayout.HelpBox($"Total Memory: {cost}/{ExpressionParameters.MAX_PARAMETER_COST}\nParameters use too much memory.  Remove parameters or use bools which use less memory.", MessageType.Error);
+					EditorGUILayout.HelpBox($"Total Memory: {cost}/{VRCExpressionParameters.MAX_PARAMETER_COST}\nParameters use too much memory. Remove parameters or use bools which use less memory.", MessageType.Error);
 
 
 				//Info
@@ -260,53 +257,110 @@ namespace Tayou
 				EditorGUILayout.HelpBox("Parameters used by the default animation controllers (Optional)\nVRCEmote, Int\nVRCFaceBlendH, Float\nVRCFaceBlendV, Float", MessageType.Info);
 
 				//Clear
-				if (GUILayout.Button("Clear Parameters"))
-				{
-					if (EditorUtility.DisplayDialogComplex("Warning", "Are you sure you want to clear all expression parameters?", "Clear", "Cancel", "") == 0)
-					{
+				if (GUILayout.Button("Clear Parameters")) {
+					if (EditorUtility.DisplayDialogComplex("Warning",
+						    "Are you sure you want to clear all expression parameters?", "Clear", "Cancel", "") == 0) {
 						InitExpressionParameters(false);
 					}
 				}
-				if (GUILayout.Button("Default Parameters"))
-				{
-					if (EditorUtility.DisplayDialogComplex("Warning", "Are you sure you want to reset all expression parameters to default?", "Reset", "Cancel", "") == 0)
-					{
+
+				if (GUILayout.Button("Default Parameters")) {
+					if (EditorUtility.DisplayDialogComplex("Warning",
+						    "Are you sure you want to reset all expression parameters to default?", "Reset", "Cancel",
+						    "") == 0) {
 						InitExpressionParameters(true);
 					}
 				}
 
+				_extraOptionsFoldout = EditorGUILayout.Foldout(_extraOptionsFoldout, "Extra Options");
+				if (_extraOptionsFoldout) {
+					_importExportParameterListTarget = (VRCExpressionParameters) EditorGUILayout.ObjectField(
+						_importExportParameterListTarget,
+						typeof(VRCExpressionParameters), false);
+					if (GUILayout.Button("Import from List")) {
+						if (EditorUtility.DisplayDialogComplex("Warning",
+							    "Are you sure you want to overwrite all parameters in this list with the ones from the other list?\nThis Operation is not reversible!",
+							    "Import", "Cancel",
+							    "") == 0) {
+							ImportExpressionParametersList();
+						}
+					}
+
+					if (GUILayout.Button("Export to List")) {
+						if (EditorUtility.DisplayDialogComplex("Warning",
+							    "Are you sure you want to overwrite the list with the parameters in this list?\nThis Operation is not reversible!",
+							    "Export", "Cancel",
+							    "") == 0) {
+							ExportExpressionParametersList();
+						}
+					}
+				}
+
 			}
-			_customExpressionParams.UpdateVRCParameterList();
 			serializedObject.ApplyModifiedProperties();
 		}
 
-		void InitExpressionParameters(bool populateWithDefault)
+		private void ExportExpressionParametersList() {
+			_importExportParameterListTarget.parameters = _target.parameters;
+		}
+
+		private void ImportExpressionParametersList() {
+			_target.parameters = _importExportParameterListTarget.parameters;
+		}
+
+		private void DrawAvatarDescriptorDropdown() {
+			List<VRCAvatarDescriptor> avatarDescriptors = GameObject.FindObjectsOfType<VRCAvatarDescriptor>().ToList();
+			if (avatarDescriptors.Count <= 0) return;
+			
+			//Select
+			var currentIndex = avatarDescriptors.IndexOf(avatarDescriptor);
+			var nextIndex = EditorGUILayout.Popup("Active Avatar", currentIndex, avatarDescriptors.Select(e => e.gameObject.name).ToArray());
+			if(nextIndex < 0)
+				nextIndex = 0;
+			if (nextIndex != currentIndex)
+				SelectAvatarDescriptor(avatarDescriptors[nextIndex]);
+		}
+		
+		void SelectAvatarDescriptor(VRCAvatarDescriptor desc)
 		{
+			if (desc == avatarDescriptor)
+				return;
+
+			avatarDescriptor = desc;
+			if(avatarDescriptor != null) {
+				_target.baseController = (AnimatorController)avatarDescriptor.baseAnimationLayers
+					.FirstOrDefault(controller => controller.type == VRCAvatarDescriptor.AnimLayerType.Base).animatorController;
+				_target.additiveController = (AnimatorController)avatarDescriptor.baseAnimationLayers
+					.FirstOrDefault(controller => controller.type == VRCAvatarDescriptor.AnimLayerType.Additive).animatorController;
+				_target.gestureController = (AnimatorController)avatarDescriptor.baseAnimationLayers
+					.FirstOrDefault(controller => controller.type == VRCAvatarDescriptor.AnimLayerType.Gesture).animatorController;
+				_target.actionController = (AnimatorController)avatarDescriptor.baseAnimationLayers
+					.FirstOrDefault(controller => controller.type == VRCAvatarDescriptor.AnimLayerType.Action).animatorController;
+				_target.fxController = (AnimatorController) avatarDescriptor.baseAnimationLayers
+					.FirstOrDefault(controller => controller.type == VRCAvatarDescriptor.AnimLayerType.FX).animatorController;
+			}
+		}
+
+		private void InitExpressionParameters(bool populateWithDefault) {
 			serializedObject.Update();
 			{
-				if (populateWithDefault)
-				{
-					_customExpressionParams.betterParameters.Clear();
+				if (populateWithDefault) {
+					_target.parameters = new ExpressionParameter[3];
 
-					_customExpressionParams.betterParameters.Add(new ExtendedVRCExpressionParameter(_customExpressionParams) { 
-						Name = "VRCEmote", 
-						ValueType = AnimatorControllerParameterType.Int 
-					});
-					_customExpressionParams.betterParameters.Add(new ExtendedVRCExpressionParameter(_customExpressionParams)
-					{
-						Name = "VRCFaceBlendH",
-						ValueType = AnimatorControllerParameterType.Float
-					});
-					_customExpressionParams.betterParameters.Add(new ExtendedVRCExpressionParameter(_customExpressionParams)
-					{
-						Name = "VRCFaceBlendV",
-						ValueType = AnimatorControllerParameterType.Float
-					});
-				}
-				else
-				{
+					_target.parameters[0] = new ExpressionParameter();
+					_target.parameters[0].name = "VRCEmote";
+					_target.parameters[0].valueType = VRCExpressionParameters.ValueType.Int;
+
+					_target.parameters[1] = new ExpressionParameter();
+					_target.parameters[1].name = "VRCFaceBlendH";
+					_target.parameters[1].valueType = VRCExpressionParameters.ValueType.Float;
+
+					_target.parameters[2] = new ExpressionParameter();
+					_target.parameters[2].name = "VRCFaceBlendV";
+					_target.parameters[2].valueType = VRCExpressionParameters.ValueType.Float;
+				} else {
 					//Empty
-					_customExpressionParams.betterParameters.Clear();
+					_target.parameters = new ExpressionParameter[0];
 				}
 			}
 			serializedObject.ApplyModifiedProperties();
